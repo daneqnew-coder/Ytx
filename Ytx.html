@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
+  <title>يمنتكس · نظام إدارة المصاعد المتكامل</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Cairo', sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --secondary: #8b5cf6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+    /* تأثيرات زجاجية */
+    .glass { background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); }
+    .glass-dark { background: rgba(17,25,40,0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+    /* بطاقات متحركة */
+    .card-hover { transition: transform 0.2s, box-shadow 0.2s; }
+    .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); }
+    /* عناصر القائمة الجانبية */
+    .sidebar-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.75rem; transition: all 0.2s; cursor: pointer; }
+    .sidebar-item.active { background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); }
+    .sidebar-item.active::after { content: ''; position: absolute; right: 0; width: 4px; height: 60%; background: var(--primary); border-radius: 4px 0 0 4px; }
+    /* شارات الحالة */
+    .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .badge-online { background: #10b981; color: white; }
+    .badge-maintenance { background: #f59e0b; color: white; }
+    .badge-offline { background: #6b7280; color: white; }
+    /* شريط التقدم */
+    .progress { height: 8px; background: #e5e7eb; border-radius: 9999px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--secondary)); width: 0%; transition: width 0.4s; }
+    /* محاكاة لودر */
+    .spinner { border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    /* شريط جانبي قابل للطي */
+    .sidebar-collapsed { width: 5rem; }
+    .sidebar-collapsed .sidebar-text { display: none; }
+    .sidebar-collapsed .sidebar-icon { margin-left: 0; }
+    /* تحسينات للأجهزة الصغيرة */
+    @media (max-width: 768px) {
+      .sidebar-expanded { position: fixed; top: 0; right: 0; bottom: 0; z-index: 50; width: 16rem; }
+      .main-expanded { margin-right: 0; }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-white min-h-screen">
+
+  <!-- شاشة تسجيل الدخول -->
+  <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+    <div class="glass max-w-md w-full rounded-3xl p-8 relative overflow-hidden shadow-2xl">
+      <div class="absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full blur-3xl opacity-30"></div>
+      <div class="absolute -bottom-20 -left-20 w-64 h-64 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full blur-3xl opacity-30"></div>
+      <div class="relative z-10">
+        <div class="text-center mb-8">
+          <div class="w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+            <i class="fas fa-elevator text-white text-3xl"></i>
+          </div>
+          <h2 class="text-3xl font-bold bg-gradient-to-l from-blue-600 to-purple-600 bg-clip-text text-transparent mt-3">يمنتكس</h2>
+          <p class="text-gray-600">نظام إدارة المصاعد والعقارات</p>
+        </div>
+        <form id="loginForm">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">البريد الإلكتروني</label>
+            <input type="email" id="loginEmail" value="admin@yementex.com" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition bg-white/60">
+          </div>
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-1">كلمة المرور</label>
+            <input type="password" id="loginPassword" value="123456" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition bg-white/60">
+          </div>
+          <button type="submit" id="loginBtn" class="w-full bg-gradient-to-l from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 rounded-xl transition transform hover:scale-[1.02] shadow-lg flex items-center justify-center gap-2">
+            <i class="fas fa-sign-in-alt"></i> دخول
+          </button>
+        </form>
+        <p class="text-center text-xs text-gray-400 mt-6">© 2025 يمنتكس · جميع الحقوق محفوظة</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- التطبيق الرئيسي -->
+  <div id="mainApp" class="hidden flex h-screen overflow-hidden">
+    <!-- الشريط الجانبي (Sidebar) مع إمكانية الطي -->
+    <nav id="sidebar" class="glass-dark text-white h-full transition-all duration-300 overflow-y-auto relative flex flex-col" style="width: 18rem;">
+      <div class="p-5 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0"><i class="fas fa-elevator text-white"></i></div>
+          <span class="font-bold text-xl sidebar-text">يمنتكس</span>
+        </div>
+        <button id="toggleSidebar" class="text-gray-300 hover:text-white p-1 rounded-lg">
+          <i class="fas fa-chevron-right text-xl"></i>
+        </button>
+      </div>
+      <!-- معلومات العميل (Tenant) -->
+      <div class="mx-3 p-3 bg-white/10 rounded-xl mb-4">
+        <div class="flex items-center gap-2 text-sm"><i class="fas fa-building"></i><span class="sidebar-text" id="tenantName">فندق السلام</span></div>
+        <div class="flex items-center gap-2 text-xs text-gray-300 mt-1"><i class="fas fa-fingerprint"></i><span class="sidebar-text" id="tenantId">TN-12345</span></div>
+      </div>
+      <!-- قائمة التنقل -->
+      <ul class="flex-1 px-3 space-y-1">
+        <li><div onclick="navigate('dashboard')" class="sidebar-item active" id="navDashboard"><i class="fas fa-tachometer-alt w-6 sidebar-icon"></i><span class="sidebar-text">لوحة التحكم</span></div></li>
+        <li><div onclick="navigate('elevators')" class="sidebar-item" id="navElevators"><i class="fas fa-elevator w-6 sidebar-icon"></i><span class="sidebar-text">المصاعد</span><span class="mr-auto bg-blue-500/30 text-xs px-2 py-0.5 rounded-full sidebar-text" id="elevatorCount">0</span></div></li>
+        <li><div onclick="navigate('cards')" class="sidebar-item" id="navCards"><i class="fas fa-credit-card w-6 sidebar-icon"></i><span class="sidebar-text">الكروت</span><span class="mr-auto bg-green-500/30 text-xs px-2 py-0.5 rounded-full sidebar-text" id="cardCount">0</span></div></li>
+        <li><div onclick="navigate('property')" class="sidebar-item" id="navProperty"><i class="fas fa-building w-6 sidebar-icon"></i><span class="sidebar-text">العقار</span></div></li>
+        <li><div onclick="navigate('reports')" class="sidebar-item" id="navReports"><i class="fas fa-chart-bar w-6 sidebar-icon"></i><span class="sidebar-text">التقارير</span></div></li>
+        <li><div onclick="navigate('settings')" class="sidebar-item" id="navSettings"><i class="fas fa-cog w-6 sidebar-icon"></i><span class="sidebar-text">الإعدادات</span></div></li>
+      </ul>
+      <!-- ملف المستخدم -->
+      <div class="p-4 border-t border-white/10 mt-auto">
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center"><i class="fas fa-user text-white"></i></div>
+            <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-gray-900 rounded-full"></span>
+          </div>
+          <div class="flex-1 min-w-0 sidebar-text">
+            <p class="text-sm font-medium truncate" id="userName">أحمد (مالك)</p>
+            <p class="text-xs text-gray-400 truncate" id="userRole">مالك عقار · فندق السلام</p>
+          </div>
+          <button onclick="logout()" class="text-gray-400 hover:text-red-400 p-2"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- المحتوى الرئيسي -->
+    <main id="mainContent" class="flex-1 overflow-y-auto bg-slate-50 transition-all duration-300">
+      <!-- شريط علوي مع تبديل الأدوار (للعرض) -->
+      <header class="bg-white/70 backdrop-blur-md border-b border-gray-200 sticky top-0 z-10 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 id="pageTitle" class="text-2xl font-bold text-gray-800">لوحة التحكم</h1>
+          <p id="pageSubtitle" class="text-sm text-gray-500">نظرة عامة على النظام</p>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2 bg-white border rounded-xl p-1">
+            <span class="text-xs text-gray-500 px-2">معاينة الدور:</span>
+            <select id="roleSwitcher" class="border-0 bg-transparent text-sm focus:ring-0">
+              <option value="super">سوبر أدمن (يمنتكس)</option>
+              <option value="owner" selected>مالك عقار</option>
+              <option value="manager">مدير</option>
+              <option value="staff">موظف استقبال</option>
+              <option value="resident">ساكن</option>
+            </select>
+          </div>
+          <button class="p-2 text-gray-600 hover:bg-gray-100 rounded-xl relative">
+            <i class="fas fa-bell text-xl"></i>
+            <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          </button>
+        </div>
+      </header>
+
+      <!-- ========== شاشة لوحة التحكم ========== -->
+      <div id="dashboardScreen" class="p-6 hidden">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" id="dashboardStats"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 glass rounded-2xl p-6">
+            <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2"><span class="w-2 h-2 bg-green-500 rounded-full"></span> حالة المصاعد (مباشر)</h3>
+            <div id="elevatorStatusList" class="space-y-3"></div>
+          </div>
+          <div class="space-y-6">
+            <div class="glass rounded-2xl p-6">
+              <h3 class="font-semibold text-gray-800 mb-4">إجراءات سريعة</h3>
+              <div class="grid grid-cols-2 gap-3">
+                <button onclick="quickAction('addCard')" class="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-3 rounded-xl text-center"><i class="fas fa-plus-circle text-xl mb-1"></i><span class="block text-xs">إضافة كرت</span></button>
+                <button onclick="quickAction('addElevator')" class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-3 rounded-xl text-center"><i class="fas fa-elevator text-xl mb-1"></i><span class="block text-xs">إضافة مصعد</span></button>
+                <button onclick="quickAction('pairDevice')" class="bg-gradient-to-br from-green-500 to-green-600 text-white p-3 rounded-xl text-center"><i class="fas fa-bluetooth-b text-xl mb-1"></i><span class="block text-xs">ربط جهاز</span></button>
+                <button onclick="quickAction('emergency')" class="bg-gradient-to-br from-red-500 to-red-600 text-white p-3 rounded-xl text-center"><i class="fas fa-exclamation-triangle text-xl mb-1"></i><span class="block text-xs">طوارئ</span></button>
+              </div>
+            </div>
+            <div class="glass rounded-2xl p-6">
+              <h3 class="font-semibold text-gray-800 mb-4">آخر النشاطات</h3>
+              <div id="recentActivities" class="space-y-3"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== شاشة المصاعد ========== -->
+      <div id="elevatorsScreen" class="p-6 hidden">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <h2 class="text-2xl font-bold text-gray-800">المصاعد والأجهزة</h2>
+          <div class="flex gap-2">
+            <button onclick="quickAction('addElevator')" class="bg-gradient-to-l from-blue-600 to-purple-600 text-white px-5 py-2 rounded-xl flex items-center gap-2"><i class="fas fa-plus"></i> إضافة مصعد</button>
+            <button onclick="quickAction('pairDevice')" class="bg-white border border-gray-300 text-gray-700 px-5 py-2 rounded-xl flex items-center gap-2"><i class="fas fa-bluetooth"></i> بحث عن أجهزة</button>
+          </div>
+        </div>
+        <!-- إحصائيات المصاعد -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="elevatorStatsCards"></div>
+        <!-- قائمة المصاعد -->
+        <div id="elevatorsGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
+      </div>
+
+      <!-- ========== شاشة الكروت (الأكثر تفصيلاً) ========== -->
+      <div id="cardsScreen" class="p-6 hidden">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <h2 class="text-2xl font-bold text-gray-800">إدارة الكروت</h2>
+          <button onclick="quickAction('addCard')" class="bg-gradient-to-l from-blue-600 to-purple-600 text-white px-5 py-2 rounded-xl flex items-center gap-2"><i class="fas fa-plus"></i> إضافة كرت جديد</button>
+        </div>
+        <!-- إحصائيات الكروت -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="cardStatsCards"></div>
+        <!-- شريط البحث والفلتر -->
+        <div class="flex flex-wrap gap-3 mb-6">
+          <input type="text" id="cardSearch" placeholder="بحث بالاسم أو رقم الكرت..." class="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-200">
+          <select id="cardFilter" class="px-4 py-2 border border-gray-300 rounded-xl bg-white">
+            <option value="all">كل الحالات</option>
+            <option value="active">نشط</option>
+            <option value="expired">منتهي</option>
+            <option value="blocked">محظور</option>
+          </select>
+          <button onclick="exportCards()" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-xl flex items-center gap-2"><i class="fas fa-file-export"></i> تصدير</button>
+        </div>
+        <!-- شبكة الكروت -->
+        <div id="cardsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      </div>
+
+      <!-- ========== شاشة العقار (المباني والطوابق) ========== -->
+      <div id="propertyScreen" class="p-6 hidden">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">العقار: فندق السلام</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="glass rounded-2xl p-6">
+            <h3 class="font-semibold text-gray-800 mb-3">المباني</h3>
+            <ul class="space-y-2">
+              <li class="flex justify-between p-2 bg-white/50 rounded-lg"><span>برج السلام</span><span class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">12 طابق</span></li>
+              <li class="flex justify-between p-2 bg-white/50 rounded-lg"><span>المبنى الإداري</span><span class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">5 طوابق</span></li>
+            </ul>
+            <button class="mt-3 text-blue-600 text-sm flex items-center gap-1"><i class="fas fa-plus"></i> إضافة مبنى</button>
+          </div>
+          <div class="glass rounded-2xl p-6">
+            <h3 class="font-semibold text-gray-800 mb-3">الطوابق (برج السلام)</h3>
+            <ul class="space-y-2">
+              <li class="flex justify-between p-2 bg-white/50 rounded-lg"><span>طابق أرضي</span><span class="text-xs text-gray-500">4 وحدات</span></li>
+              <li class="flex justify-between p-2 bg-white/50 rounded-lg"><span>طابق أول</span><span class="text-xs text-gray-500">6 وحدات</span></li>
+              <li class="flex justify-between p-2 bg-white/50 rounded-lg"><span>طابق ثاني</span><span class="text-xs text-gray-500">6 وحدات</span></li>
+            </ul>
+          </div>
+          <div class="glass rounded-2xl p-6">
+            <h3 class="font-semibold text-gray-800 mb-3">الوحدات</h3>
+            <p class="text-sm text-gray-600">اختر طابقاً لعرض الوحدات</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== شاشة التقارير (مبسطة) ========== -->
+      <div id="reportsScreen" class="p-6 hidden">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">التقارير</h2>
+        <div class="glass p-6 rounded-2xl">
+          <p class="text-gray-600">قريباً: تقارير استخدام المصاعد، الكروت، والإيرادات.</p>
+        </div>
+      </div>
+
+      <!-- ========== شاشة الإعدادات (مبسطة) ========== -->
+      <div id="settingsScreen" class="p-6 hidden">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">الإعدادات</h2>
+        <div class="glass p-6 rounded-2xl space-y-4">
+          <div><label class="block text-sm font-medium">اسم المنشأة</label><input type="text" value="فندق السلام" class="w-full mt-1 p-2 border rounded-lg"></div>
+          <div><label class="block text-sm font-medium">نوع المنشأة</label><select class="w-full mt-1 p-2 border rounded-lg"><option>فندق</option><option>عمارة سكنية</option><option>شقق مفروشة</option></select></div>
+          <div><label class="block text-sm font-medium">النسخ الاحتياطي</label><button class="bg-blue-600 text-white px-4 py-2 rounded-lg">إنشاء نسخة احتياطية الآن</button></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ------------------------------------------------------------
+    // 1. طبقة البيانات (محاكاة قاعدة بيانات)
+    // ------------------------------------------------------------
+    const AppData = {
+      tenant: { id: 'TN-12345', name: 'فندق السلام', type: 'hotel' },
+      elevators: [
+        { id: 'e1', name: 'مصعد رئيسي A1', building: 'برج السلام', location: 'الدور الأرضي', status: 'online', currentFloor: 7, destination: 10, trips: 125, bluetooth: 'AA:BB:CC:DD:EE', signal: 85, lastActive: 'منذ 2 دقيقة' },
+        { id: 'e2', name: 'مصعد خدمي B2', building: 'فندق القاهرة', location: 'الدور 5', status: 'maintenance', currentFloor: 2, trips: 320, bluetooth: 'AA:BB:CC:DD:FF', signal: 70, lastActive: 'منذ 15 دقيقة', maintenanceProgress: 75 },
+        { id: 'e3', name: 'مصعد شمالي C3', building: 'مجمع عدن', location: 'الدور 3', status: 'online', currentFloor: 3, destination: 5, trips: 89, bluetooth: 'AA:BB:CC:DD:GG', signal: 95, lastActive: 'منذ 5 دقائق', load: 60 },
+        { id: 'e4', name: 'مصعد غربي D4', building: 'برج السلام', location: 'الدور 12', status: 'offline', currentFloor: 12, trips: 0, bluetooth: 'AA:BB:CC:DD:HH', signal: 0, lastActive: 'منذ ساعتين' },
+      ],
+      cards: [
+        { id: 'c1', number: '****1234', owner: 'أحمد محمد', room: 'غرفة 502', status: 'active', remaining: 25, expiry: '2025-02-15', lastUsed: '2025-01-15', type: 'نزيل', floors: [5,6,7] },
+        { id: 'c2', number: '****5678', owner: 'فاطمة علي', room: 'شقة 301', status: 'expired', remaining: 3, expiry: '2025-01-14', lastUsed: '2025-01-10', type: 'مستأجر', floors: [3] },
+        { id: 'c3', number: '****9012', owner: 'محمد حسن', room: 'موظف', status: 'active', remaining: 50, expiry: '2025-03-15', lastUsed: '2025-01-15', type: 'موظف', floors: [1,2,3,4,5,6,7,8,9,10] },
+        { id: 'c4', number: '****3456', owner: 'سارة خالد', room: 'غرفة 102', status: 'blocked', remaining: 0, expiry: '2024-12-01', lastUsed: '2024-11-20', type: 'نزيل', floors: [1] },
+        { id: 'c5', number: '****7890', owner: 'عمر حسن', room: 'شقة 202', status: 'active', remaining: 10, expiry: '2025-02-28', lastUsed: '2025-01-14', type: 'مستأجر', floors: [2] },
+      ],
+      activities: [
+        { user: 'أحمد محمد', action: 'استخدام مصعد A1 إلى طابق 5', time: 'منذ 10 د', icon: 'arrow-up', bg: 'blue' },
+        { user: 'فاطمة علي', action: 'شحن كرت بمبلغ 50 ريال', time: 'منذ 25 د', icon: 'credit-card', bg: 'green' },
+        { user: 'النظام', action: 'انتهاء صلاحية كرت شقة 301', time: 'منذ ساعة', icon: 'exclamation-circle', bg: 'yellow' },
+      ],
+      currentUserRole: 'owner', // super, owner, manager, staff, resident
+    };
+
+    // ------------------------------------------------------------
+    // 2. دوال مساعدة
+    // ------------------------------------------------------------
+    function getStats() {
+      const totalElevators = AppData.elevators.length;
+      const activeElevators = AppData.elevators.filter(e => e.status === 'online').length;
+      const maintenanceElevators = AppData.elevators.filter(e => e.status === 'maintenance').length;
+      const offlineElevators = AppData.elevators.filter(e => e.status === 'offline').length;
+      const totalCards = AppData.cards.length;
+      const activeCards = AppData.cards.filter(c => c.status === 'active').length;
+      const expiredCards = AppData.cards.filter(c => c.status === 'expired').length;
+      const blockedCards = AppData.cards.filter(c => c.status === 'blocked').length;
+      return { totalElevators, activeElevators, maintenanceElevators, offlineElevators, totalCards, activeCards, expiredCards, blockedCards };
+    }
+
+    // تحديث العدادات في الشريط الجانبي
+    function updateSidebarCounts() {
+      const stats = getStats();
+      document.getElementById('elevatorCount').innerText = stats.totalElevators;
+      document.getElementById('cardCount').innerText = stats.totalCards;
+    }
+
+    // ------------------------------------------------------------
+    // 3. دوال العرض (Render Functions)
+    // ------------------------------------------------------------
+    function renderStatCard(title, value, icon, color, subtext = '') {
+      return `<div class="glass rounded-2xl p-5 card-hover"><div class="flex justify-between items-start"><div><p class="text-gray-500 text-sm">${title}</p><p class="text-3xl font-bold text-gray-800">${value}</p>${subtext ? `<p class="text-xs text-gray-400 mt-1">${subtext}</p>` : ''}</div><div class="w-12 h-12 bg-${color}-100 rounded-xl flex items-center justify-center text-${color}-600 text-2xl"><i class="fas fa-${icon}"></i></div></div></div>`;
+    }
+
+    function renderElevatorCard(e) {
+      const statusClass = e.status === 'online' ? 'badge-online' : (e.status === 'maintenance' ? 'badge-maintenance' : 'badge-offline');
+      const statusText = e.status === 'online' ? 'نشط' : (e.status === 'maintenance' ? 'صيانة' : 'متوقف');
+      return `<div class="glass rounded-xl p-5 card-hover" data-id="${e.id}">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3"><div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white"><i class="fas fa-elevator"></i></div><div><h4 class="font-semibold">${e.name}</h4><p class="text-xs text-gray-500">${e.building} · ${e.location}</p></div></div>
+          <span class="badge ${statusClass}">${statusText}</span>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-sm mb-3"><div><span class="text-gray-500">الطابق</span><p class="font-semibold">${e.currentFloor}</p></div><div><span class="text-gray-500">الرحلات</span><p class="font-semibold">${e.trips}</p></div></div>
+        ${e.status === 'maintenance' ? `<div class="progress mb-2"><div class="progress-fill bg-yellow-500" style="width: ${e.maintenanceProgress}%"></div></div><p class="text-xs text-yellow-600">تقدم الصيانة ${e.maintenanceProgress}%</p>` : ''}
+        <div class="flex items-center justify-between text-xs text-gray-400 mt-2"><span><i class="fas fa-bluetooth-b ml-1"></i>${e.bluetooth}</span><span>آخر نشاط: ${e.lastActive}</span></div>
+      </div>`;
+    }
+
+    function renderCardItem(c) {
+      const statusColors = { active: 'green', expired: 'yellow', blocked: 'red' };
+      const statusText = { active: 'نشط', expired: 'منتهي', blocked: 'محظور' };
+      const color = statusColors[c.status];
+      const progressPercent = (c.remaining / 50) * 100; // افتراض حد أقصى 50
+      // عرض الطوابق المسموحة
+      const floorsText = c.floors ? 'طوابق: ' + c.floors.join(', ') : '';
+      return `<div class="glass rounded-xl p-5 relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-24 h-24 bg-${color}-500/10 rounded-full blur-2xl"></div>
+        <div class="relative"><div class="flex items-center justify-between mb-3"><div class="w-10 h-10 bg-gradient-to-br from-${color}-500 to-${color}-600 rounded-xl flex items-center justify-center text-white"><i class="fas fa-id-card"></i></div><span class="px-2 py-1 bg-${color}-100 text-${color}-700 text-xs rounded-full">${statusText[c.status]}</span></div>
+        <h4 class="font-semibold text-gray-800">${c.owner}</h4><p class="text-xs text-gray-500 mb-2">${c.room} · ${c.number}</p>
+        <div class="bg-gray-50 p-2 rounded-lg mb-2"><div class="flex justify-between text-xs"><span>المتبقي: ${c.remaining}</span><span>صلاحية: ${c.expiry}</span></div><div class="progress mt-1"><div class="progress-fill bg-${color}-500" style="width: ${progressPercent}%"></div></div></div>
+        <div class="flex justify-between items-center text-xs"><span class="text-gray-400"><i class="fas fa-history ml-1"></i>${c.lastUsed}</span><span class="text-gray-600">${c.type}</span></div>
+        ${floorsText ? `<div class="text-xs text-gray-500 mt-2">${floorsText}</div>` : ''}
+        <div class="mt-3 flex gap-2"><button onclick="editCard('${c.id}')" class="flex-1 bg-blue-100 text-blue-700 py-1 rounded-lg text-xs">تعديل</button><button onclick="chargeCard('${c.id}')" class="flex-1 bg-green-100 text-green-700 py-1 rounded-lg text-xs">شحن</button></div>
+        </div>
+      </div>`;
+    }
+
+    function renderActivityItem(a) {
+      return `<div class="flex items-center justify-between p-3 bg-white/50 rounded-xl"><div class="flex items-center gap-3"><div class="w-8 h-8 bg-${a.bg}-100 rounded-lg flex items-center justify-center text-${a.bg}-600"><i class="fas fa-${a.icon}"></i></div><div><p class="text-sm font-medium">${a.user}</p><p class="text-xs text-gray-500">${a.action}</p></div></div><span class="text-xs text-gray-400">${a.time}</span></div>`;
+    }
+
+    // ------------------------------------------------------------
+    // 4. تحديث الشاشات
+    // ------------------------------------------------------------
+    function refreshDashboard() {
+      const stats = getStats();
+      document.getElementById('dashboardStats').innerHTML = 
+        renderStatCard('إجمالي المصاعد', stats.totalElevators, 'elevator', 'blue') +
+        renderStatCard('نشط', stats.activeElevators, 'check-circle', 'green', '+2 عن الأمس') +
+        renderStatCard('الكروت النشطة', stats.activeCards, 'credit-card', 'purple', 'من أصل ' + stats.totalCards) +
+        renderStatCard('صيانة', stats.maintenanceElevators, 'tools', 'orange', 'مجدولة');
+      
+      document.getElementById('elevatorStatusList').innerHTML = AppData.elevators.map(e => {
+        const statusClass = e.status === 'online' ? 'badge-online' : (e.status === 'maintenance' ? 'badge-maintenance' : 'badge-offline');
+        return `<div class="bg-white/70 rounded-xl p-3 flex items-center justify-between"><div class="flex items-center gap-3"><div class="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center"><i class="fas fa-elevator text-gray-600"></i></div><div><p class="font-medium">${e.name}</p><p class="text-xs text-gray-500">آخر نشاط: ${e.lastActive}</p></div></div><span class="badge ${statusClass}">${e.status === 'online' ? 'نشط' : (e.status === 'maintenance' ? 'صيانة' : 'متوقف')}</span></div>`;
+      }).join('');
+      document.getElementById('recentActivities').innerHTML = AppData.activities.map(renderActivityItem).join('');
+    }
+
+    function refreshElevatorsScreen() {
+      const stats = getStats();
+      document.getElementById('elevatorStatsCards').innerHTML = `
+        <div class="glass p-4 text-center"><span class="text-2xl font-bold text-blue-600">${stats.totalElevators}</span><p class="text-xs text-gray-600">إجمالي</p></div>
+        <div class="glass p-4 text-center"><span class="text-2xl font-bold text-green-600">${stats.activeElevators}</span><p class="text-xs text-gray-600">نشط</p></div>
+        <div class="glass p-4 text-center"><span class="text-2xl font-bold text-yellow-600">${stats.maintenanceElevators}</span><p class="text-xs text-gray-600">صيانة</p></div>
+        <div class="glass p-4 text-center"><span class="text-2xl font-bold text-gray-600">${stats.offlineElevators}</span><p class="text-xs text-gray-600">متوقف</p></div>
+      `;
+      document.getElementById('elevatorsGrid').innerHTML = AppData.elevators.map(renderElevatorCard).join('');
+    }
+
+    function refreshCardsScreen() {
+      const stats = getStats();
+      document.getElementById('cardStatsCards').innerHTML = `
+        <div class="glass p-4 text-center"><span class="text-2xl font-bold text-blue-600">${stats.totalCards}</span><p class="text-xs text-gray-600">إجمالي</p></div>
+        <div class="glass p-4 text-center"><span class="text-2xl font-bold text-green-600">${stats.activeCards}</span><p class="text-xs text-gray-600">نشط</p></div>
+        <div class="glass p-4 text-center"><span class="text-2xl font-bold text-yellow-600">${stats.expiredCards}</span><p class="text-xs text-gray-600">منتهي</p></div>
+        <div class="glass p-4 text-center"><span class="text-2xl font-bold text-red-600">${stats.blockedCards}</span><p class="text-xs text-gray-600">محظور</p></div>
+      `;
+      // تطبيق الفلتر والبحث
+      let filtered = AppData.cards;
+      const filter = document.getElementById('cardFilter')?.value || 'all';
+      if (filter !== 'all') filtered = filtered.filter(c => c.status === filter);
+      const search = document.getElementById('cardSearch')?.value.toLowerCase();
+      if (search) filtered = filtered.filter(c => c.owner.toLowerCase().includes(search) || c.number.includes(search));
+      document.getElementById('cardsGrid').innerHTML = filtered.map(renderCardItem).join('');
+    }
+
+    function refreshAll() {
+      updateSidebarCounts();
+      refreshDashboard();
+      refreshElevatorsScreen();
+      refreshCardsScreen();
+      // تحديث اسم المستخدم حسب الدور
+      updateUserRoleUI();
+    }
+
+    // ------------------------------------------------------------
+    // 5. إجراءات سريعة (محاكاة)
+    // ------------------------------------------------------------
+    function quickAction(action) {
+      if (action === 'addCard') {
+        const newCard = {
+          id: 'c'+Date.now(),
+          number: '****'+Math.floor(1000+Math.random()*9000),
+          owner: 'مستخدم جديد',
+          room: 'وحدة جديدة',
+          status: 'active',
+          remaining: 30,
+          expiry: '2025-12-31',
+          lastUsed: 'الآن',
+          type: 'نزيل',
+          floors: [1]
+        };
+        AppData.cards.push(newCard);
+        showNotification('تمت إضافة كرت جديد', 'success');
+        if (currentScreen === 'cards') refreshCardsScreen();
+      } else if (action === 'addElevator') {
+        const newElevator = {
+          id: 'e'+Date.now(),
+          name: 'مصعد جديد',
+          building: 'برج السلام',
+          location: 'الدور الأرضي',
+          status: 'online',
+          currentFloor: 1,
+          trips: 0,
+          bluetooth: 'AA:BB:CC:DD:XX',
+          signal: 90,
+          lastActive: 'الآن'
+        };
+        AppData.elevators.push(newElevator);
+        showNotification('تمت إضافة مصعد جديد', 'success');
+        if (currentScreen === 'elevators') refreshElevatorsScreen();
+      } else if (action === 'pairDevice') {
+        showNotification('جاري البحث عن أجهزة قريبة...', 'info');
+      } else if (action === 'emergency') {
+        if(confirm('هل تريد تفعيل حالة الطوارئ؟')) showNotification('تم إرسال إشعار للجهات المختصة', 'warning');
+      }
+      refreshAll();
+    }
+
+    function editCard(cardId) {
+      alert('تعديل الكرت: ' + cardId + '\n(هنا يمكن تغيير الصلاحيات والطوابق)');
+    }
+
+    function chargeCard(cardId) {
+      alert('شحن الكرت: ' + cardId + '\n(هنا يمكن إضافة رصيد أو تمديد صلاحية)');
+    }
+
+    function exportCards() {
+      alert('تصدير بيانات الكروت (PDF/Excel)');
+    }
+
+    function showNotification(msg, type='success') {
+      const notif = document.createElement('div');
+      notif.className = `fixed top-5 left-1/2 transform -translate-x-1/2 bg-gradient-to-l from-${type==='success'?'green':type==='info'?'blue':'red'}-500 to-${type==='success'?'emerald':type==='info'?'purple':'pink'}-500 text-white px-6 py-3 rounded-2xl shadow-2xl z-50 flex items-center gap-3 slide-in`;
+      notif.innerHTML = `<i class="fas fa-${type==='success'?'check-circle':type==='info'?'info-circle':'exclamation-triangle'}"></i><span>${msg}</span>`;
+      document.body.appendChild(notif);
+      setTimeout(() => notif.remove(), 3000);
+    }
+
+    // ------------------------------------------------------------
+    // 6. التنقل وإدارة الأدوار
+    // ------------------------------------------------------------
+    let currentScreen = 'dashboard';
+
+    function navigate(screen) {
+      const screens = ['dashboard','elevators','cards','property','reports','settings'];
+      screens.forEach(s => {
+        document.getElementById(s+'Screen')?.classList.add('hidden');
+      });
+      document.getElementById(screen+'Screen')?.classList.remove('hidden');
+      document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+      document.getElementById('nav'+screen.charAt(0).toUpperCase()+screen.slice(1))?.classList.add('active');
+      currentScreen = screen;
+      // تغيير العنوان
+      const titles = { dashboard:'لوحة التحكم', elevators:'المصاعد', cards:'الكروت', property:'العقار', reports:'التقارير', settings:'الإعدادات' };
+      document.getElementById('pageTitle').innerText = titles[screen];
+      if (screen === 'cards') refreshCardsScreen();
+      else if (screen === 'elevators') refreshElevatorsScreen();
+      else if (screen === 'dashboard') refreshDashboard();
+    }
+
+    function updateUserRoleUI() {
+      const role = document.getElementById('roleSwitcher').value;
+      AppData.currentUserRole = role;
+      const roleNames = { super:'سوبر أدمن', owner:'مالك عقار', manager:'مدير', staff:'موظف استقبال', resident:'ساكن' };
+      document.getElementById('userRole').innerText = roleNames[role] + ' · ' + AppData.tenant.name;
+      if (role === 'super') {
+        document.getElementById('userName').innerText = 'محمد (يمنتكس)';
+        // يمكن إظهار أزرار إضافية للسوبر
+      } else if (role === 'owner') {
+        document.getElementById('userName').innerText = 'أحمد (مالك)';
+      } else if (role === 'manager') {
+        document.getElementById('userName').innerText = 'خالد (مدير)';
+      } else if (role === 'staff') {
+        document.getElementById('userName').innerText = 'سلمى (موظفة)';
+      } else if (role === 'resident') {
+        document.getElementById('userName').innerText = 'يوسف (ساكن)';
+      }
+    }
+
+    // ------------------------------------------------------------
+    // 7. طي/توسيع الشريط الجانبي
+    // ------------------------------------------------------------
+    document.getElementById('toggleSidebar').addEventListener('click', function() {
+      const sidebar = document.getElementById('sidebar');
+      const isCollapsed = sidebar.style.width === '5rem';
+      if (isCollapsed) {
+        sidebar.style.width = '18rem';
+        this.innerHTML = '<i class="fas fa-chevron-right text-xl"></i>';
+      } else {
+        sidebar.style.width = '5rem';
+        this.innerHTML = '<i class="fas fa-chevron-left text-xl"></i>';
+      }
+    });
+
+    // ------------------------------------------------------------
+    // 8. التهيئة وتسجيل الدخول
+    // ------------------------------------------------------------
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      btn.innerHTML = '<span class="spinner"></span>';
+      setTimeout(() => {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('mainApp').classList.remove('hidden');
+        refreshAll();
+        showNotification('مرحباً بك في يمنتكس', 'success');
+        btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> دخول';
+      }, 800);
+    });
+
+    function logout() {
+      if (confirm('تسجيل الخروج؟')) {
+        document.getElementById('mainApp').classList.add('hidden');
+        document.getElementById('loginScreen').classList.remove('hidden');
+      }
+    }
+
+    // مراقبة تغيير الدور
+    document.getElementById('roleSwitcher').addEventListener('change', updateUserRoleUI);
+
+    // مراقبة البحث والفلترة
+    document.getElementById('cardSearch')?.addEventListener('input', refreshCardsScreen);
+    document.getElementById('cardFilter')?.addEventListener('change', refreshCardsScreen);
+
+    // محاكاة تحديث دوري كل 15 ثانية
+    setInterval(() => {
+      if (!document.getElementById('mainApp').classList.contains('hidden')) {
+        // تغيير طابق أول مصعد
+        if (AppData.elevators.length > 0) {
+          AppData.elevators[0].currentFloor = Math.floor(Math.random() * 10) + 1;
+        }
+        // إضافة نشاط
+        AppData.activities.unshift({ user: 'النظام', action: 'تحديث تلقائي', time: 'الآن', icon: 'sync', bg: 'gray' });
+        if (AppData.activities.length > 5) AppData.activities.pop();
+        refreshDashboard();
+      }
+    }, 15000);
+  </script>
+</body>
+</html>
